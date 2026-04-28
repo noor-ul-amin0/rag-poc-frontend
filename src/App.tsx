@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -263,6 +263,15 @@ function App() {
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(
     null,
   );
+  const conversationEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    conversationEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const apiBase = useMemo(
     () => import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:50506",
@@ -377,9 +386,9 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen bg-(--paper) text-(--ink)">
-      <div className="mx-auto flex min-h-screen w-full flex-col px-4 py-8 sm:px-8">
-        <header className="relative overflow-hidden rounded-2xl border border-(--line) bg-(--card) p-6 shadow-[0_15px_40px_rgba(0,0,0,0.08)] sm:p-8">
+    <main className="h-screen bg-(--paper) text-(--ink) flex flex-col overflow-hidden">
+      <div className="flex flex-col h-full w-full px-4 py-6 sm:px-8 overflow-hidden">
+        <header className="relative overflow-hidden rounded-2xl border border-(--line) bg-(--card) p-4 sm:p-6 shadow-[0_15px_40px_rgba(0,0,0,0.08)] shrink-0">
           <div className="absolute -right-12 -top-16 h-52 w-52 rounded-full bg-[radial-gradient(circle,rgba(255,102,46,0.35),rgba(255,102,46,0))]" />
           <div className="absolute -bottom-20 left-1/2 h-40 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(28,151,129,0.28),rgba(28,151,129,0))]" />
           <p className="relative text-sm font-semibold uppercase tracking-[0.18em] text-(--muted)">
@@ -387,10 +396,10 @@ function App() {
           </p>
         </header>
 
-        <section className="mt-6">
+        <section className="mt-4 flex-1 flex flex-col overflow-hidden">
           {/* ── Conversation ── */}
-          <div className="rounded-2xl border border-(--line) bg-(--card) p-4 sm:p-6">
-            <div className="h-90 space-y-3 overflow-auto rounded-xl border border-(--line) bg-(--panel) p-3">
+          <div className="rounded-2xl border border-(--line) bg-(--card) p-4 sm:p-6 flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 space-y-3 overflow-auto rounded-xl border border-(--line) bg-(--panel) p-3">
               {messages.length === 0 ? (
                 <p className="text-sm text-(--muted)">
                   No messages yet. Ask a question to test the backend.
@@ -421,6 +430,7 @@ function App() {
                   </article>
                 ))
               )}
+              <div ref={conversationEndRef} />
             </div>
 
             <form
@@ -430,102 +440,32 @@ function App() {
                 void sendMessage();
               }}
             >
-              <label
-                className="mb-2 block text-sm font-semibold"
-                htmlFor="prompt"
-              >
-                Prompt
-              </label>
-              <input
-                id="prompt"
-                type="text"
-                className="w-full rounded-xl border border-(--line) bg-white px-4 py-3 text-sm outline-none transition focus:border-(--accent) focus:ring-2 focus:ring-[rgba(255,102,46,0.2)]"
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder="Type your question"
-              />
-
               {error ? (
-                <p className="mt-3 text-sm text-(--danger)">{error}</p>
+                <p className="mb-3 text-sm text-(--danger)">{error}</p>
               ) : null}
 
-              <div className="mt-4 flex flex-wrap gap-3">
+              <div className="flex gap-3">
+                <input
+                  id="prompt"
+                  type="text"
+                  className="flex-1 rounded-xl border border-(--line) bg-white px-4 py-3 text-sm outline-none transition focus:border-(--accent) focus:ring-2 focus:ring-[rgba(255,102,46,0.2)]"
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  placeholder="Type your question"
+                />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded-full bg-(--accent) px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="rounded-xl bg-(--accent) px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 flex items-center justify-center"
                 >
-                  {loading ? "Calling API..." : "Send to /chat"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMessages([]);
-                    setCitations([]);
-                    setError("");
-                  }}
-                  className="rounded-full border border-(--line) bg-white px-5 py-2.5 text-sm font-semibold text-(--ink) transition hover:bg-(--panel)"
-                >
-                  Clear
+                  {loading ? "..." : "→"}
                 </button>
               </div>
             </form>
           </div>
-
-          {/* ── References panel ── */}
         </section>
 
-        <aside className="rounded-2xl border border-(--line) bg-(--card) p-4 sm:p-6">
-          <h2 className="font-['Space_Grotesk',sans-serif] text-xl font-semibold">
-            References
-          </h2>
-          <p className="mt-2 text-sm text-(--muted)">
-            Click a number in the answer or a card below to view the source. PDF
-            sources open in a new tab; others show a content preview.
-          </p>
-
-          <div className="mt-4 h-109 space-y-2 overflow-auto pr-1">
-            {citations.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-(--line) bg-(--panel) p-4 text-sm text-(--muted)">
-                No citations yet.
-              </p>
-            ) : (
-              citations.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => handleCitationClick(c)}
-                  className="group flex w-full items-start gap-3 rounded-xl border border-(--line) bg-white p-3 text-left text-sm transition hover:border-(--accent)/40 hover:bg-(--panel)"
-                >
-                  {/* Badge */}
-                  <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-(--accent)/15 text-[11px] font-bold text-(--accent) transition group-hover:bg-(--accent) group-hover:text-white">
-                    {c.id}
-                  </span>
-                  {/* Meta */}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium leading-snug text-(--ink)">
-                      {c.sourcefile}
-                    </p>
-                    {c.breadcrumb ? (
-                      <p className="mt-0.5 truncate text-xs text-(--muted)">
-                        {c.breadcrumb}
-                      </p>
-                    ) : null}
-                    {c.extension === "pdf" ? (
-                      <span className="mt-1 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
-                        PDF · p.{c.page_num + 1}
-                      </span>
-                    ) : (
-                      <span className="mt-1 inline-block rounded bg-(--panel) px-1.5 py-0.5 text-[10px] font-semibold text-(--muted)">
-                        {c.extension.toUpperCase() || "DOC"}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </aside>
+        {/* ── References panel ── */}
       </div>
 
       {/* Citation modal (non-PDF sources) */}
