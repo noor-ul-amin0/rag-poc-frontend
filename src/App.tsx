@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,6 +49,36 @@ type ChatResponse = {
 // ---------------------------------------------------------------------------
 
 const plainMarkdownComponents = {
+  h1: ({ children }: { children?: React.ReactNode }) => (
+    <h1 className="mb-3 text-2xl font-bold text-(--ink) last:mb-0">
+      {children}
+    </h1>
+  ),
+  h2: ({ children }: { children?: React.ReactNode }) => (
+    <h2 className="mb-2.5 text-xl font-bold text-(--ink) last:mb-0">
+      {children}
+    </h2>
+  ),
+  h3: ({ children }: { children?: React.ReactNode }) => (
+    <h3 className="mb-2 text-lg font-semibold text-(--ink) last:mb-0">
+      {children}
+    </h3>
+  ),
+  h4: ({ children }: { children?: React.ReactNode }) => (
+    <h4 className="mb-2 text-base font-semibold text-(--ink) last:mb-0">
+      {children}
+    </h4>
+  ),
+  h5: ({ children }: { children?: React.ReactNode }) => (
+    <h5 className="mb-2 text-sm font-semibold text-(--ink) last:mb-0">
+      {children}
+    </h5>
+  ),
+  h6: ({ children }: { children?: React.ReactNode }) => (
+    <h6 className="mb-2 text-xs font-semibold text-(--ink) last:mb-0">
+      {children}
+    </h6>
+  ),
   p: ({ children }: { children?: React.ReactNode }) => (
     <p className="mb-2 whitespace-pre-wrap last:mb-0">{children}</p>
   ),
@@ -60,10 +91,26 @@ const plainMarkdownComponents = {
   li: ({ children }: { children?: React.ReactNode }) => (
     <li className="leading-relaxed">{children}</li>
   ),
+  pre: ({ children }: { children?: React.ReactNode }) => (
+    <pre className="mb-2 overflow-x-auto rounded bg-black/5 p-3 last:mb-0">
+      {children}
+    </pre>
+  ),
   code: ({ children }: { children?: React.ReactNode }) => (
     <code className="rounded bg-black/10 px-1 py-0.5 text-[0.92em]">
       {children}
     </code>
+  ),
+  strong: ({ children }: { children?: React.ReactNode }) => (
+    <strong className="font-semibold">{children}</strong>
+  ),
+  em: ({ children }: { children?: React.ReactNode }) => (
+    <em className="italic">{children}</em>
+  ),
+  blockquote: ({ children }: { children?: React.ReactNode }) => (
+    <blockquote className="mb-2 border-l-4 border-(--line) pl-4 italic last:mb-0">
+      {children}
+    </blockquote>
   ),
   a: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
     <a
@@ -80,6 +127,13 @@ const plainMarkdownComponents = {
       <table className="min-w-full border-collapse text-sm">{children}</table>
     </div>
   ),
+  thead: ({ children }: { children?: React.ReactNode }) => (
+    <thead>{children}</thead>
+  ),
+  tbody: ({ children }: { children?: React.ReactNode }) => (
+    <tbody>{children}</tbody>
+  ),
+  tr: ({ children }: { children?: React.ReactNode }) => <tr>{children}</tr>,
   th: ({ children }: { children?: React.ReactNode }) => (
     <th className="border border-(--line) bg-(--panel) px-2 py-1 text-left font-semibold">
       {children}
@@ -114,6 +168,8 @@ function CitationModal({
   citation: Citation;
   onClose: () => void;
 }) {
+  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(citation.content);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -152,12 +208,20 @@ function CitationModal({
 
         {/* Chunk content */}
         <div className="overflow-auto px-6 py-4 text-sm leading-relaxed text-(--ink)">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={plainMarkdownComponents}
-          >
-            {citation.content}
-          </ReactMarkdown>
+          {hasHtmlTags ? (
+            <div
+              className="citation-html-content"
+              dangerouslySetInnerHTML={{ __html: citation.content }}
+            />
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeRaw]}
+              components={plainMarkdownComponents}
+            >
+              {citation.content}
+            </ReactMarkdown>
+          )}
 
           {/* Figures attached to this chunk */}
           {citation.images.length > 0 ? (

@@ -43,3 +43,24 @@ body {
     var(--paper);
   color: var(--ink);
 }
+
+/* Styles for raw HTML content in citation modal */
+.citation-html-content table {
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.citation-html-content th,
+.citation-html-content td {
+  border: 1px solid var(--line);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.citation-html-content th {
+  background-color: var(--panel);
+  font-weight: 600;
+}
