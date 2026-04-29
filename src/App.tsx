@@ -267,9 +267,7 @@ function CitationModal({
 // ---------------------------------------------------------------------------
 
 function App() {
-  const [prompt, setPrompt] = useState(
-    "show me an example of Compensate measure calculation",
-  );
+  const [prompt, setPrompt] = useState("show me the Cargue measure logic.");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [citations, setCitations] = useState<Citation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -368,11 +366,15 @@ function App() {
     setError("");
 
     try {
+      const historyPayload = nextMessages
+        .map((m) => ({ role: m.role, content: m.content.trim() }))
+        .filter((m) => m.content.length > 0);
+
       const response = await fetch(`${apiBase}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [{ role: "user", content: text }],
+          messages: historyPayload,
         }),
       });
 
