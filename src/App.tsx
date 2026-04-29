@@ -44,6 +44,20 @@ type ChatResponse = {
   error?: string;
 };
 
+type ChatStreamEvent =
+  | {
+      type: "delta";
+      content?: string;
+    }
+  | {
+      type: "done";
+      response?: ChatResponse;
+    }
+  | {
+      type: "error";
+      error?: string;
+    };
+
 // ---------------------------------------------------------------------------
 // Plain markdown components (no citation badge handling) – used in the modal
 // ---------------------------------------------------------------------------
@@ -354,25 +368,93 @@ function App() {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/chat`, {
+      const response = await fetch(`${apiBase}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [{ role: "user", content: text }],
-          top: 5,
         }),
       });
 
-      const data = (await response.json()) as ChatResponse;
-      if (!response.ok || data.error) {
+      if (!response.ok) {
+        const fallback = (await response
+          .json()
+          .catch(() => ({}))) as ChatResponse;
         throw new Error(
-          data.error || `Request failed with status ${response.status}`,
+          fallback.error || `Request failed with status ${response.status}`,
         );
       }
 
-      const answer = data.message?.content?.trim() || "No answer was returned.";
-      setMessages([...nextMessages, { role: "assistant", content: answer }]);
-      setCitations(data.context?.data_points?.citations || []);
+      if (!response.body) {
+        throw new Error("Streaming response body is empty.");
+      }
+
+      let assistantText = "";
+      let finalResponse: ChatResponse | null = null;
+      setMessages([...nextMessages, { role: "assistant", content: "" }]);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line) continue;
+
+          let event: ChatStreamEvent;
+          try {
+            event = JSON.parse(line) as ChatStreamEvent;
+          } catch {
+            continue;
+          }
+
+          if (event.type === "delta") {
+            const delta = event.content || "";
+            if (!delta) continue;
+            assistantText += delta;
+            setMessages([
+              ...nextMessages,
+              { role: "assistant", content: assistantText },
+            ]);
+            continue;
+          }
+
+          if (event.type === "done") {
+            finalResponse = event.response ?? null;
+            const finalAnswer =
+              finalResponse?.message?.content?.trim() ||
+              assistantText ||
+              "No answer was returned.";
+            setMessages([
+              ...nextMessages,
+              { role: "assistant", content: finalAnswer },
+            ]);
+            setCitations(finalResponse?.context?.data_points?.citations || []);
+            continue;
+          }
+
+          if (event.type === "error") {
+            throw new Error(event.error || "Streaming request failed.");
+          }
+        }
+      }
+
+      if (!finalResponse) {
+        const fallbackAnswer =
+          assistantText.trim() || "No answer was returned.";
+        setMessages([
+          ...nextMessages,
+          { role: "assistant", content: fallbackAnswer },
+        ]);
+      }
     } catch (err) {
       setError(
         err instanceof Error
